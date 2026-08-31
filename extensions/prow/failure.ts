@@ -10,6 +10,7 @@
 
 export interface Signal {
   name: string;
+  sub_category?: string;
   evidence: string[];
 }
 
@@ -103,14 +104,24 @@ export function scanFailureSignals(input: FailureScanInput): Signal[] {
     const installEvidence = installTestLine
       ? [truncate(installTestLine), ...installLogLines].slice(0, EVIDENCE_MAX_LINES)
       : installLogLines;
-    signals.push({ name: "install", evidence: installEvidence });
+    let sub_category: string | undefined;
+    if (installLogLines.some((l) => /bootstrap/i.test(l))) {
+      sub_category = "bootstrap-timeout";
+    } else if (installLogLines.some((l) => /cluster-creation|control plane/i.test(l))) {
+      sub_category = "control-plane-unready";
+    } else if (installLogLines.some((l) => /ipi-install/i.test(l))) {
+      sub_category = "ipi-install";
+    }
+    signals.push({ name: "install", ...(sub_category ? { sub_category } : {}), evidence: installEvidence });
   }
 
   // install-metal: install failure on a metal/baremetal job
   if (signals.some((s) => s.name === "install") && jobTypes.includes("metal")) {
+    const mainInstall = signals.find((s) => s.name === "install")!;
     signals.push({
       name: "install-metal",
-      evidence: signals.find((s) => s.name === "install")!.evidence,
+      ...(mainInstall.sub_category ? { sub_category: mainInstall.sub_category } : {}),
+      evidence: mainInstall.evidence,
     });
   }
 
@@ -133,7 +144,13 @@ export function scanFailureSignals(input: FailureScanInput): Signal[] {
   // upgrade: CVO/MCO/version-skew markers, or a failing upgrade job
   const upgradeLines = fromLines(buildLogLines, UPGRADE_RE);
   if (upgradeLines.length > 0) {
-    signals.push({ name: "upgrade", evidence: upgradeLines });
+    let sub_category: string | undefined;
+    if (upgradeLines.some((l) => /cvo|clusterversion|operator.{0,40}degraded/i.test(l))) {
+      sub_category = "cvo-degraded";
+    } else if (upgradeLines.some((l) => /mco|machineconfig/i.test(l))) {
+      sub_category = "mco-drain-stall";
+    }
+    signals.push({ name: "upgrade", ...(sub_category ? { sub_category } : {}), evidence: upgradeLines });
   } else if (jobTypes.includes("upgrade") && hasTests) {
     signals.push({ name: "upgrade", evidence: testEvidence });
   }
@@ -159,17 +176,62 @@ export function scanFailureSignals(input: FailureScanInput): Signal[] {
     signals.push({ name: "aggregated", evidence: testEvidence });
   }
 
-  // log-marker signals
-  const markerSignals: [string, RegExp][] = [
-    ["cloud-provider", CLOUD_RE],
-    ["resource-exhaustion", RESOURCE_RE],
-    ["networking", NETWORK_RE],
-    ["os-changes", OS_RE],
+  // log-marker signals with sub-category detection
+  const markerSignals: [string, RegExp, [string, RegExp][]?][] = [
+    [
+      "cloud-provider",
+      CLOUD_RE,
+      [
+        ["aws-quota", /aws|insufficient (instance )?capacity|vcpu|requestlimitexceeded/i],
+        ["gcp-quota", /gcp|zone_resource_pool|quota_exceeded/i],
+        ["azure-quota", /azure|overconstrainedallocation/i],
+        ["boskos-lease", /boskos|lease/i],
+      ],
+    ],
+    [
+      "resource-exhaustion",
+      RESOURCE_RE,
+      [
+        ["container-oom", /oomkilled|out of memory|exit code 137/i],
+        ["node-pressure", /memorypressure|diskpressure|pidpressure|notready/i],
+        ["pod-eviction", /evict|unschedulable/i],
+      ],
+    ],
+    [
+      "networking",
+      NETWORK_RE,
+      [
+        ["image-pull", /image pull|pull image|imagepullbackoff|errimagepull|manifest unknown|registry/i],
+        ["dns-resolution", /dns|no such host|nxdomain/i],
+        ["ovn-network", /\bovn\b|openflow/i],
+      ],
+    ],
+    [
+      "os-changes",
+      OS_RE,
+      [
+        ["kernel-panic", /kernel panic/i],
+        ["crio-runtime", /cri-o|crun/i],
+        ["selinux", /selinux/i],
+      ],
+    ],
     ["ci-infrastructure", CI_INFRA_RE],
   ];
-  for (const [name, re] of markerSignals) {
+
+  for (const [name, re, subPatterns] of markerSignals) {
     const lines = fromLines(buildLogLines, re);
-    if (lines.length > 0) signals.push({ name, evidence: lines });
+    if (lines.length > 0) {
+      let sub_category: string | undefined;
+      if (subPatterns) {
+        for (const [subName, subRe] of subPatterns) {
+          if (lines.some((l) => subRe.test(l))) {
+            sub_category = subName;
+            break;
+          }
+        }
+      }
+      signals.push({ name, ...(sub_category ? { sub_category } : {}), evidence: lines });
+    }
   }
 
   return signals;

@@ -1,8 +1,5 @@
-# Prow job analysis references
+# Prow Job Analysis References
 
-These 15 documents are vendored **verbatim** (byte-identical, no per-file
-headers) from `plugins/ci/skills/prow-job-analysis/references/` in
-[openshift-eng/ai-helpers](https://github.com/openshift-eng/ai-helpers) as of
-2026-08-31. All paths inside the docs are relative to this `references/`
-directory. They are lazy-loaded: read only the files that `analyze_prow_run`
-lists as candidates for the run you are analyzing.
+Optimized, high-density reference cards for OpenShift CI Prow job failure triage. All paths inside these documents are relative to this `references/` directory.
+
+These reference cards are lazy-loaded: read only the candidate reference files (at most 1–2) returned by `analyze_prow_run`.
