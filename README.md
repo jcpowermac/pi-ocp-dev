@@ -37,7 +37,11 @@ All three tools read `prowjobs.js` with a 30-minute disk cache under
 ## Install
 
 ```bash
-pi install git:github.com/jcpowermac/pi-ocp-dev@v1
+pi install git:github.com/jcpowermac/pi-ocp-dev
+```
+
+(Installs the default branch; run `pi update --extensions` after pushing
+changes. Pin a ref with `@<commit-or-tag>` if you ever want a stable version.)
 ```
 
 or a local path while developing:
