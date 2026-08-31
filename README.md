@@ -1,29 +1,52 @@
 # pi-ocp-dev
 
-[pi](https://pi.dev) coding agent tools for OpenShift developers.
+[pi](https://pi.dev) coding agent tools and skills for OpenShift developers.
 
-## Tools
+`pi-ocp-dev` provides a complete suite of deterministic tools, lifecycle hooks, and skills designed to accelerate OpenShift development workflows while keeping LLM context window usage minimal.
+
+---
+
+## Tool Catalog
+
+### Prow CI Inspection & Analysis (`extensions/prow/`)
 
 | Tool | Purpose |
 |------|---------|
 | `prow_status` | Compact status report for OpenShift periodic CI jobs on public Prow (`prow.ci.openshift.org`): per-job latest state, 6-run sparkline (S/F/P/A/E), failure %, pass rates over 12/24/48h, last success age, and variant. Grouped by OCP version. EOL versions (< 4.12) are excluded. |
 | `prow_job` | Detail for one periodic job: metrics plus the 10 most recent runs with state, start time, build id, and Prow URL. Accepts exact names or substrings; lists candidates on ambiguity. |
 | `prow_build_log` | Tail of a build's `build-log.txt`, converted automatically from a Prow deck URL (`https://prow.ci.openshift.org/view/gs/...`) to the public GCS object. |
-| `analyze_prow_run` | Deterministic first-pass analysis of one failed run: job types, failed e2e tests, failure signals with evidence lines, 1-3 candidate reference docs, and artifact paths — compact JSON, public GCS only. |
+| `analyze_prow_run` | Deterministic first-pass analysis of one failed run: job types, failed e2e tests, failure signals with evidence lines, candidate reference docs, and artifact paths — compact JSON, public GCS only. |
 | `detect_permafail` | Permafail verdict for 2-10 consecutive failures of the same job (newest first): fetches each run's failure signature and applies per-type match thresholds (100% / 80% / 70%), returning `permafail`, `failure_type`, `match_ratio`, and `confidence`. |
 
-`prow_status` requires at least one of `platforms` or `version` (or an explicit
-`all: true`) so the agent does not dump every periodic job by accident.
+### PR Review & Gate Tools (`extensions/pr/`)
 
-Typical agent workflow: `prow_status` (find failing jobs) → `prow_job`
-(recent runs + URLs) → `prow_build_log` (root-cause triage).
-For a failing run, `analyze_prow_run` gives a deterministic first pass and
-`detect_permafail` decides whether a failure streak is systematic or flaky.
+| Tool | Purpose |
+|------|---------|
+| `pr_review_status` | Deterministic gate check: evaluates whether a PR has actionable unanswered review comments from authorized authors or new non-optional CI failures (`comment_work`, `ci_work`, `work`). |
+| `pr_review_comments` | Fetches authorized, unanswered review comments categorized by priority (`ACTION_INSTRUCTION`, `BLOCKING`, `CHANGE_REQUEST`, `QUESTION`, `SUGGESTION`) with trimmed diff hunks. |
+| `pr_post_reply` | Safely posts an AI-assisted reply (`---\n*AI-assisted response*`) to a review comment or issue comment, with duplicate reply prevention. |
+| `verify_repo` | Detects and executes repo verification commands (`make verify`, `make lint`, `go test ./...`, `npm test`), capturing and truncating output to preserve context. |
 
-## Slash command
+### PR CI Failure Triage Tools (`extensions/ci/`)
 
-The extension also registers `/prow`, which relays a crafted prompt to the agent
-so it runs the matching tool and reasons about the result:
+| Tool | Purpose |
+|------|---------|
+| `triage_pr_ci_failures` | Correlates failing PR checks with git diff context and `analyze_prow_run` to classify failures into `pr_caused`, `infrastructure`, `pre_existing`, `flake`, or `out_of_scope`. Detects optional Prow jobs via `prowjob.json`. |
+| `post_ci_failure_report` | Posts a structured report to the PR conversation explaining non-actionable CI failures with evidence and next steps. |
+
+### Jira & PR Creation Tools (`extensions/jira/`)
+
+| Tool | Purpose |
+|------|---------|
+| `jira_get_issue` | Fetches Jira issue details via REST API, parsing summary, issue type, context, acceptance criteria, and reproduction steps into structured fields. |
+| `create_pr_helper` | Formats PR title (`<ISSUE_KEY>: <summary>`), populates body from `.github/PULL_REQUEST_TEMPLATE.md` and commit log, and executes `gh pr create`. |
+
+---
+
+## Slash Commands
+
+### `/prow`
+Relays a structured prompt to the agent to inspect or analyze Prow jobs:
 
 ```
 /prow vsphere 4.18                    → prow_status (platforms + version)
@@ -35,74 +58,94 @@ so it runs the matching tool and reasons about the result:
 /prow                                 → usage hint (no LLM)
 ```
 
-`prow_status` and `prow_job` read `prowjobs.js` with a 30-minute disk cache
-under `~/.cache/pi-ocp-dev/` (override with `PI_OCP_DEV_CACHE_DIR`); pass
-`refresh: true` to bypass, or `file: <path>` to analyze a local
-`prowjobs.json` instead of fetching. `prow_build_log`, `analyze_prow_run`, and
-`detect_permafail` fetch straight from public GCS.
+---
 
-## Run analysis: skill and subagent
+## Skill Catalog
 
-The package also ships a thin `prow-job-analysis` skill and a `prow-analyst`
-subagent (`agents/prow-analyst.md`). The skill routes analysis through the two
-deterministic tools and then reads at most 2 of the vendored reference docs
-under `skills/prow-job-analysis/references/`; dispatch `prow-analyst` (prefer
-async) for deep dives so the parent session stays clean.
+| Skill | Purpose |
+|-------|---------|
+| `prow-job-analysis` | Deterministic triage of Prow job failures via `analyze_prow_run` and lazy-loaded reference docs under `skills/prow-job-analysis/references/`. |
+| `has-review-work` | Read-only gate check: decides if a PR has unanswered authorized comments (`COMMENT_WORK`) or new required CI failures (`CI_WORK`). Supports `--ci` machine-readable output. |
+| `address-review-pr` | Fetches, prioritizes, and resolves PR review feedback, making code changes, verifying locally with `verify_repo`, replying via `pr_post_reply`, and pushing. |
+| `address-ci-failures` | Triages failing CI checks using `triage_pr_ci_failures`. Fixes only PR-caused failures on required jobs; reports infra, flake, and pre-existing issues via `post_ci_failure_report`. |
+| `address-review-precommit` | Applies pre-commit code review findings to the current branch, iteratively verifying with `verify_repo` before committing and pushing. |
+| `create-pr` | Creates a pull request from the current branch linked to a Jira issue key (`create_pr_helper`). |
+| `jira-solve` | End-to-end Jira issue solver: fetches issue details with `jira_get_issue`, plans solution in `.work/solve/`, implements changes, verifies, commits by component, pushes, and creates draft PR. |
+| `generate-test-plan` | Analyzes Jira acceptance criteria and PR diffs to generate a structured manual QE testing guide (`test-<key>.md`). |
 
-How it keeps context small: the upstream failure-mode knowledge base is ~443 KB
-of markdown. Here it stays on disk and loads lazily — per run, the session sees
-≤4 KB of structured tool output plus at most 2 reference docs, instead of the
-whole runbook.
+---
 
-## Install
+## Lifecycle Hooks
+
+### Pre-Commit Session Start Hook (`extensions/precommit/`)
+- Automatically triggers on Pi's `session_start` event.
+- If `.pre-commit-config.yaml` is present in the workspace, it validates repository URLs against a trusted whitelist (`pre-commit-hooks`, `gitleaks`, `local` hooks).
+- If valid, installs pre-commit and pre-push git hooks silently via `pre-commit install`.
+- Notifies the user via UI notifications if untrusted repositories or missing prerequisites are detected.
+
+---
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `JIRA_API_TOKEN` | Atlassian API token for Jira Cloud REST API. | None |
+| `JIRA_USERNAME` | Jira username/email used alongside `JIRA_API_TOKEN` for Basic authentication. | None |
+| `JIRA_BEARER_TOKEN` | Bearer token for Jira instances using personal access tokens (PAT). | None |
+| `JIRA_BASE_URL` | Base URL of the Jira instance. | `https://redhat.atlassian.net` |
+| `PI_OCP_DEV_CACHE_DIR` | Directory for caching Prow periodic job definitions. | `~/.cache/pi-ocp-dev/` |
+
+---
+
+## Installation
+
+Install via Pi CLI:
 
 ```bash
 pi install git:github.com/jcpowermac/pi-ocp-dev
 ```
 
-(Installs the default branch; run `pi update --extensions` after pushing
-changes. Pin a ref with `@<commit-or-tag>` if you ever want a stable version.)
-
-or a local path while developing:
+Or install from a local checkout during development:
 
 ```bash
 pi install /path/to/pi-ocp-dev
 ```
 
-Verify the tools are active:
+---
+
+## Development & Testing
 
 ```bash
-pi -p "call prow_status with platforms ['vsphere'] and show the report"
+npm install        # Install dev dependencies
+npm test           # Run Vitest test suites
+npm run typecheck  # Run TypeScript typechecker (tsc --noEmit)
 ```
 
-## Development
-
-```bash
-npm install        # dev deps include vitest + pi packages for typechecking
-npm test           # vitest
-npx tsc --noEmit   # typecheck
-```
-
-Layout:
+Directory structure:
 
 ```
-extensions/prow/
-├── index.ts        # registers the Prow tools
-├── fetch.ts        # prowjobs.js fetch + disk cache, build-log URL derivation/tail
-├── analyze.ts      # filtering, aggregation, metrics, compact report rendering
-├── command.ts      # /prow slash command parsing + prompt building
-├── failure.ts      # job-type classification + failure-signal scanning
-├── classify.ts     # GCS artifact fetch, JUnit parsing, failure signatures
-├── permafail.ts    # permafail threshold engine (per-type match thresholds)
-└── run-analysis.ts # analyze_prow_run / detect_permafail pipelines
-skills/prow-job-analysis/
-├── SKILL.md     # thin router (analyze_prow_run → ≤2 references → verdict)
-└── references/  # 15 vendored failure-mode docs, lazy-loaded
-agents/prow-analyst.md  # deep-dive subagent
+extensions/
+├── index.ts        # Main entrypoint registering all tools, commands, and hooks
+├── prow/           # Prow periodic status, build logs, and deterministic run analysis
+├── pr/             # OWNERS auth, comment parsing, reply posting, repo verify
+├── ci/             # Optional job detection, PR diff context, CI failure triage
+├── jira/           # Jira REST client, issue parser, PR creator helper
+└── precommit/      # Pre-commit config validation and session_start hook
+skills/
+├── prow-job-analysis/
+├── has-review-work/
+├── address-review-pr/
+├── address-ci-failures/
+├── address-review-precommit/
+├── create-pr/
+├── jira-solve/
+└── generate-test-plan/
+agents/
+└── prow-analyst.md # Specialized subagent for Prow failure analysis
+test/               # Comprehensive Vitest test suites for all modules
 ```
 
-`test/` covers the tools and their pure logic (`failure`, `classify`,
-`permafail`, `run-analysis`, `command`).
+---
 
 ## License
 
