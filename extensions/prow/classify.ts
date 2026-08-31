@@ -77,7 +77,8 @@ export function prowUrlToGcsPath(input: string): GcsRunRef {
       raw.startsWith("http://storage.googleapis.com/") ||
       raw.startsWith("https://storage.googleapis.com/")
     ) {
-      raw = raw.slice("https://storage.googleapis.com/".length);
+      const marker = "storage.googleapis.com/";
+      raw = raw.slice(raw.indexOf(marker) + marker.length);
     } else {
       throw new Error(`not a Prow deck URL or GCS path: ${input}`);
     }
@@ -220,10 +221,12 @@ const PRIORITY_ERROR_PATTERNS = [
 /**
  * Pick the most informative error line from the tail of a build log
  * (last 300 lines, error-keyword scan, priority patterns win).
+ * The tail is scanned newest-first (port of upstream extract_error_line),
+ * so both the priority match and the fallback return the most recent line.
  */
 export function extractErrorLine(logLines: string[]): string {
   const candidates: string[] = [];
-  for (const line of logLines.slice(-LOG_TAIL_LINES)) {
+  for (const line of logLines.slice(-LOG_TAIL_LINES).reverse()) {
     const stripped = line.replace(ANSI_ESCAPE_RE, "").trim();
     if (!stripped || SKIP_LOG_LINE.test(stripped)) continue;
     if (FAIL_WORD_RE.test(stripped)) candidates.push(stripped);

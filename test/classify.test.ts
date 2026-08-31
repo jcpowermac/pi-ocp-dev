@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { createHash } from "node:crypto";
 import {
   prowUrlToGcsPath,
+  extractErrorLine,
   fetchRunSignature,
   groupErrors,
   normalizeErrorMessage,
@@ -105,6 +106,41 @@ describe("prowUrlToGcsPath", () => {
       prowUrlToGcsPath("https://prow.ci.openshift.org/jobs"),
     ).toThrow();
     expect(() => prowUrlToGcsPath("gs://bucket/onlyone")).toThrow();
+  });
+
+  it("parses an http:// storage.googleapis.com URL", () => {
+    expect(
+      prowUrlToGcsPath(
+        "http://storage.googleapis.com/test-platform-results/logs/JOB/123",
+      ),
+    ).toEqual({
+      bucket: "test-platform-results",
+      path: "logs",
+      buildId: "123",
+      jobName: "JOB",
+    });
+  });
+});
+
+describe("extractErrorLine", () => {
+  it("returns the newest error line from a multi-error log", () => {
+    expect(
+      extractErrorLine([
+        "error: old registry pull denied",
+        "ok line",
+        "error: new registry pull denied",
+      ]),
+    ).toBe("error: new registry pull denied");
+  });
+
+  it("returns the newest priority-pattern match, not the oldest", () => {
+    expect(
+      extractErrorLine([
+        "error: cluster operator foo degraded",
+        "ok line",
+        "error: cluster operator bar degraded",
+      ]),
+    ).toBe("error: cluster operator bar degraded");
   });
 });
 
