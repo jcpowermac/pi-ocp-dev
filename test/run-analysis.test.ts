@@ -122,8 +122,29 @@ describe("buildRunAnalysis", () => {
       "https://storage.googleapis.com/test-platform-results/logs/periodic-ci-openshift-release-4.18-nightly-e2e-aws-ovn/123/build-log.txt",
       "https://storage.googleapis.com/test-platform-results/logs/periodic-ci-openshift-release-4.18-nightly-e2e-aws-ovn/123/artifacts/",
       "https://storage.googleapis.com/test-platform-results/logs/periodic-ci-openshift-release-4.18-nightly-e2e-aws-ovn/123/artifacts/gather-extra/artifacts/",
+      "https://storage.googleapis.com/test-platform-results/logs/periodic-ci-openshift-release-4.18-nightly-e2e-aws-ovn/123/artifacts/gather-extra/artifacts/clusteroperators.json",
       "https://storage.googleapis.com/test-platform-results/logs/periodic-ci-openshift-release-4.18-nightly-e2e-aws-ovn/123/artifacts/gather-extra/artifacts/audit_logs/",
+      "https://storage.googleapis.com/test-platform-results/logs/periodic-ci-openshift-release-4.18-nightly-e2e-aws-ovn/123/artifacts/junit_install.xml",
     ]);
+  });
+
+  it("includes disruption and aggregated artifact paths when applicable", () => {
+    const aggRef: GcsRunRef = {
+      bucket: "test-platform-results",
+      path: "logs",
+      jobName: "aggregated-ci-openshift-release-4.18-nightly-e2e-aws-ovn",
+      buildId: "456",
+    };
+    const result = buildRunAnalysis(aggRef, {
+      failedTests: [],
+      buildLogLines: ["disruption interval 15s in openshift-etcd"],
+    });
+    expect(result.artifact_paths).toContain(
+      "https://storage.googleapis.com/test-platform-results/logs/aggregated-ci-openshift-release-4.18-nightly-e2e-aws-ovn/456/artifacts/e2e-timelines_spyglass_*.json",
+    );
+    expect(result.artifact_paths).toContain(
+      "https://storage.googleapis.com/test-platform-results/logs/aggregated-ci-openshift-release-4.18-nightly-e2e-aws-ovn/456/artifacts/aggregated-extra/",
+    );
   });
 
   it("falls back to the artifacts doc when no signals are found", () => {

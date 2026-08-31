@@ -89,6 +89,23 @@ export function buildRunAnalysis(ref: GcsRunRef, inputs: RunInputs): RunAnalysis
     jobName: ref.jobName,
   });
   const base = `${GCS_HOST}/${ref.bucket}/${runPrefix(ref)}`;
+  const artifact_paths = [
+    `${base}/build-log.txt`,
+    `${base}/artifacts/`,
+    `${base}/artifacts/gather-extra/artifacts/`,
+    `${base}/artifacts/gather-extra/artifacts/clusteroperators.json`,
+    `${base}/artifacts/gather-extra/artifacts/audit_logs/`,
+  ];
+  if (signals.some((s) => s.name === "install")) {
+    artifact_paths.push(`${base}/artifacts/junit_install.xml`);
+  }
+  if (signals.some((s) => s.name === "disruption")) {
+    artifact_paths.push(`${base}/artifacts/e2e-timelines_spyglass_*.json`);
+  }
+  if (jobTypes.includes("aggregated")) {
+    artifact_paths.push(`${base}/artifacts/aggregated-extra/`);
+  }
+
   return {
     job_name: ref.jobName,
     build_id: ref.buildId,
@@ -96,12 +113,7 @@ export function buildRunAnalysis(ref: GcsRunRef, inputs: RunInputs): RunAnalysis
     failed_tests: inputs.failedTests,
     signals,
     candidate_references: candidateReferences(jobTypes, signals),
-    artifact_paths: [
-      `${base}/build-log.txt`,
-      `${base}/artifacts/`,
-      `${base}/artifacts/gather-extra/artifacts/`,
-      `${base}/artifacts/gather-extra/artifacts/audit_logs/`,
-    ],
+    artifact_paths,
   };
 }
 

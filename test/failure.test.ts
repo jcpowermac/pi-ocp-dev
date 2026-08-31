@@ -216,11 +216,37 @@ describe("scanFailureSignals", () => {
     expect(names(signals)).toContain("aggregated");
   });
 
-  it("emits cloud-provider for quota/throttling/provisioning errors", () => {
+  it("emits cloud-provider with sub_category for quota/throttling/provisioning errors", () => {
     const signals = scan([], [
       "aws: Error: QuotaExceeded: insufficient instance capacity in us-east-1",
     ]);
-    expect(names(signals)).toContain("cloud-provider");
+    const cp = signals.find((s) => s.name === "cloud-provider");
+    expect(cp).toBeDefined();
+    expect(cp?.sub_category).toBe("aws-quota");
+  });
+
+  it("emits resource-exhaustion with sub_category for container-oom and node-pressure", () => {
+    const oom = scan([], ["pod etcd-0 killed: OOMKilled"]).find(
+      (s) => s.name === "resource-exhaustion",
+    );
+    expect(oom?.sub_category).toBe("container-oom");
+
+    const press = scan([], ["node worker-0 NotReady: MemoryPressure"]).find(
+      (s) => s.name === "resource-exhaustion",
+    );
+    expect(press?.sub_category).toBe("node-pressure");
+  });
+
+  it("emits networking with sub_category for image-pull and dns", () => {
+    const pull = scan([], ["Failed to pull image quay.io/app:latest: registry access timeout"]).find(
+      (s) => s.name === "networking",
+    );
+    expect(pull?.sub_category).toBe("image-pull");
+
+    const dns = scan([], ["DNS lookup failed: no such host for api.apps-ops"]).find(
+      (s) => s.name === "networking",
+    );
+    expect(dns?.sub_category).toBe("dns-resolution");
   });
 
   it("emits resource-exhaustion for OOM / NotReady / disk pressure markers", () => {
