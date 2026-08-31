@@ -267,6 +267,38 @@ describe("scanFailureSignals", () => {
     expect(line.length).toBeLessThanOrEqual(200);
   });
 
+  it("caps install evidence at 3 lines when the install test and log lines both fail", () => {
+    const signals = scan(
+      ["[sig-installer] install should succeed"],
+      [
+        "bootstrap failed to pull image quay.io/openshift/installer:latest",
+        "cluster-creation error: control plane did not become ready",
+        "install stage timed out after 30m",
+        "ipi-install step error: machine config daemon stuck",
+      ],
+    );
+    const install = signals.find((s) => s.name === "install");
+    expect(install).toBeDefined();
+    expect(install!.evidence).toHaveLength(3);
+    // the failed test name takes the first slot
+    expect(install!.evidence[0]).toContain("install should succeed");
+  });
+
+  it("caps install-metal evidence at 3 lines for the same combination", () => {
+    const signals = scan(
+      ["[sig-installer] install should succeed"],
+      [
+        "bootstrap failed to pull image quay.io/openshift/installer:latest",
+        "cluster-creation error: control plane did not become ready",
+        "install stage timed out after 30m",
+      ],
+      "periodic-ci-openshift-4.18-metal",
+    );
+    const metal = signals.find((s) => s.name === "install-metal");
+    expect(metal).toBeDefined();
+    expect(metal!.evidence).toHaveLength(3);
+  });
+
   it("emits multiple independent signals for compound failures", () => {
     const signals = scan(
       ["[sig-network] should serve endpoints"],

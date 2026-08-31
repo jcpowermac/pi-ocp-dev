@@ -100,10 +100,10 @@ export function scanFailureSignals(input: FailureScanInput): Signal[] {
   const installLogLines = fromLines(buildLogLines, INSTALL_LOG_RE);
   const installTestLine = failedTests.find((t) => INSTALL_TEST_RE.test(t));
   if (installTestLine || installLogLines.length > 0) {
-    signals.push({
-      name: "install",
-      evidence: installTestLine ? [truncate(installTestLine), ...installLogLines] : installLogLines,
-    });
+    const installEvidence = installTestLine
+      ? [truncate(installTestLine), ...installLogLines].slice(0, EVIDENCE_MAX_LINES)
+      : installLogLines;
+    signals.push({ name: "install", evidence: installEvidence });
   }
 
   // install-metal: install failure on a metal/baremetal job
