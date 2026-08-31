@@ -42,7 +42,6 @@ pi install git:github.com/jcpowermac/pi-ocp-dev
 
 (Installs the default branch; run `pi update --extensions` after pushing
 changes. Pin a ref with `@<commit-or-tag>` if you ever want a stable version.)
-```
 
 or a local path while developing:
 
