@@ -35,10 +35,11 @@ so it runs the matching tool and reasons about the result:
 /prow                                 → usage hint (no LLM)
 ```
 
-All three tools read `prowjobs.js` with a 30-minute disk cache under
-`~/.cache/pi-ocp-dev/` (override with `PI_OCP_DEV_CACHE_DIR`); pass
+`prow_status` and `prow_job` read `prowjobs.js` with a 30-minute disk cache
+under `~/.cache/pi-ocp-dev/` (override with `PI_OCP_DEV_CACHE_DIR`); pass
 `refresh: true` to bypass, or `file: <path>` to analyze a local
-`prowjobs.json` instead of fetching.
+`prowjobs.json` instead of fetching. `prow_build_log`, `analyze_prow_run`, and
+`detect_permafail` fetch straight from public GCS.
 
 ## Run analysis: skill and subagent
 
@@ -86,9 +87,14 @@ Layout:
 
 ```
 extensions/prow/
-├── index.ts     # registers the Prow tools
-├── fetch.ts     # prowjobs.js fetch + disk cache, build-log URL derivation/tail
-└── analyze.ts   # filtering, aggregation, metrics, compact report rendering
+├── index.ts        # registers the Prow tools
+├── fetch.ts        # prowjobs.js fetch + disk cache, build-log URL derivation/tail
+├── analyze.ts      # filtering, aggregation, metrics, compact report rendering
+├── command.ts      # /prow slash command parsing + prompt building
+├── failure.ts      # job-type classification + failure-signal scanning
+├── classify.ts     # GCS artifact fetch, JUnit parsing, failure signatures
+├── permafail.ts    # permafail threshold engine (per-type match thresholds)
+└── run-analysis.ts # analyze_prow_run / detect_permafail pipelines
 skills/prow-job-analysis/
 ├── SKILL.md     # thin router (analyze_prow_run → ≤2 references → verdict)
 └── references/  # 15 vendored failure-mode docs, lazy-loaded

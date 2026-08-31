@@ -201,7 +201,7 @@ const analyzeProwRunTool = defineTool({
     "Deterministic first-pass analysis of one OpenShift CI Prow job run (public Prow/GCS, no auth). " +
     "Pass the Prow deck URL (https://prow.ci.openshift.org/view/gs/...) and it returns compact JSON: " +
     "job types derived from the job name, failed e2e tests, failure signals with evidence lines " +
-    "(install, test-failure, flaky, disruption, upgrade, hypershift, aggregated, test-extension, " +
+    "(install, install-metal, test-failure, flaky, disruption, upgrade, hypershift, aggregated, test-extension, " +
     "cloud-provider, resource-exhaustion, networking, os-changes, ci-infrastructure), 1-3 candidate " +
     "reference docs (skills/prow-job-analysis/references/), and artifact paths. Read the candidate " +
     "reference docs before concluding on the root cause.",

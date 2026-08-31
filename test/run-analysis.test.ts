@@ -208,6 +208,16 @@ describe("runPermafailAnalysis", () => {
     );
     expect(calls).toEqual([]);
   });
+
+  it("rejects a job_name that does not match the urls' parsed job names before any fetcher call", async () => {
+    const { fetcher, calls } = fakeFetcher();
+    // validUrls parse to jobName "J"; supplying a different name must throw
+    // before any fetch, and the error must name both values.
+    await expect(runPermafailAnalysis(validUrls, "other-job", { fetcher })).rejects.toThrow(
+      /other-job[\s\S]*J/,
+    );
+    expect(calls).toEqual([]);
+  });
 });
 
 describe("prowUrlToGcsPath integration", () => {

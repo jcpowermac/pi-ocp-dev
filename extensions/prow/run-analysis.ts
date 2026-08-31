@@ -130,7 +130,15 @@ export async function runPermafailAnalysis(
 ): Promise<PermafailVerdict> {
   const validated = validatePermafailInputs(urls, jobName);
   if (!validated.ok) throw new Error(validated.error);
-  const refs = validated.urls.map((u) => prowUrlToGcsPath(u));
+  const refs = validated.urls.map((u) => {
+    const ref = prowUrlToGcsPath(u);
+    if (ref.jobName && ref.jobName.toLowerCase() !== jobName.toLowerCase()) {
+      throw new Error(
+        `job_name "${jobName}" does not match URL job name "${ref.jobName}" (${u})`,
+      );
+    }
+    return ref;
+  });
   const signatures: RunSignature[] = [];
   for (const ref of refs) {
     signatures.push(await fetchRunSignature(ref, opts));
