@@ -348,7 +348,7 @@ async function listRunObjects(
 }
 
 /** Failed tests aggregated across all junit files: failures minus passes. */
-async function extractFailedTests(
+export async function extractFailedTests(
   fetcher: Fetcher,
   ref: GcsRunRef,
 ): Promise<string[]> {
@@ -389,14 +389,15 @@ async function extractFailedTests(
 
 /**
  * Extract a normalized failure signature for one Prow run from public GCS.
- * `bucketPath` accepts anything `prowUrlToGcsPath` accepts.
+ * Accepts a pre-parsed `GcsRunRef` or anything `prowUrlToGcsPath` accepts.
  */
 export async function fetchRunSignature(
-  bucketPath: string,
+  bucketPath: GcsRunRef | string,
   opts: { fetcher?: Fetcher } = {},
 ): Promise<RunSignature> {
   const fetcher = opts.fetcher ?? defaultFetcher;
-  const ref = prowUrlToGcsPath(bucketPath);
+  const ref =
+    typeof bucketPath === "string" ? prowUrlToGcsPath(bucketPath) : bucketPath;
   const base = { buildId: ref.buildId } as const;
 
   const tests = await extractFailedTests(fetcher, ref);

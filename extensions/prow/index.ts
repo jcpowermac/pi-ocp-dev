@@ -1,10 +1,12 @@
 /**
  * Prow integration for OpenShift developers (public Prow only).
  *
- * Registers three tools:
- *   - prow_status:    compact status report for periodic jobs
- *   - prow_job:       detail for a single job (metrics + recent runs)
- *   - prow_build_log: tail of a build's build-log.txt
+ * Registers five tools:
+ *   - prow_status:        compact status report for periodic jobs
+ *   - prow_job:           detail for a single job (metrics + recent runs)
+ *   - prow_build_log:     tail of a build's build-log.txt
+ *   - analyze_prow_run:   deterministic first-pass analysis of one job run
+ *   - detect_permafail:   permafail verdict for 2-10 consecutive failures
  */
 
 import { Type } from "@earendil-works/pi-ai";
@@ -23,6 +25,7 @@ import {
   type SortKey,
 } from "./analyze.js";
 import { fetchBuildLogTail, fetchProwData } from "./fetch.js";
+import { analyzeProwRun, runPermafailAnalysis } from "./run-analysis.js";
 import { buildProwPrompt, parseProwCommand } from "./command.js";
 
 const text = (t: string, details?: unknown) => ({
@@ -191,15 +194,69 @@ const prowBuildLogTool = defineTool({
   },
 });
 
+const analyzeProwRunTool = defineTool({
+  name: "analyze_prow_run",
+  label: "Analyze Prow Run",
+  description:
+    "Deterministic first-pass analysis of one OpenShift CI Prow job run (public Prow/GCS, no auth). " +
+    "Pass the Prow deck URL (https://prow.ci.openshift.org/view/gs/...) and it returns compact JSON: " +
+    "job types derived from the job name, failed e2e tests, failure signals with evidence lines " +
+    "(install, test-failure, flaky, disruption, upgrade, hypershift, aggregated, test-extension, " +
+    "cloud-provider, resource-exhaustion, networking, os-changes, ci-infrastructure), 1-3 candidate " +
+    "reference docs (skills/prow-job-analysis/references/), and artifact paths. Read the candidate " +
+    "reference docs before concluding on the root cause.",
+  parameters: Type.Object({
+    url: Type.String({
+      description: "Prow deck URL, e.g. https://prow.ci.openshift.org/view/gs/test-platform-results/logs/JOB/BUILD_ID",
+    }),
+  }),
+  async execute(_id, params) {
+    const result = await analyzeProwRun(params.url);
+    return text(JSON.stringify(result, null, 2), result);
+  },
+});
+
+const detectPermafailTool = defineTool({
+  name: "detect_permafail",
+  label: "Detect Permafail",
+  description:
+    "Deterministic permafail detection for 2-10 consecutive failures of the same OpenShift CI Prow job " +
+    "(newest first). Fetches each run's failure signature from public GCS (failed e2e tests or the " +
+    "infra error line) and applies match thresholds (100% for 2-3 runs, 80% for 4-5, 70% for 6-10) " +
+    "independently for test and infra failures. Returns the verdict JSON: permafail, failure_type, " +
+    "match_ratio, matching_runs, comparable_runs, threshold_required, confidence, and a reason with " +
+    "slash-form ratios.",
+  parameters: Type.Object({
+    urls: Type.Array(Type.String(), {
+      description:
+        "2-10 Prow deck URLs of consecutive failures, ordered newest to oldest.",
+    }),
+    job_name: Type.String({
+      description: "The job name shared by all runs, e.g. periodic-ci-openshift-...-e2e-aws-ovn.",
+    }),
+    pr_info: Type.Optional(
+      Type.String({ description: "Optional PR context, e.g. 'openshift/openshift#12345'." }),
+    ),
+  }),
+  async execute(_id, params) {
+    const verdict = await runPermafailAnalysis(params.urls, params.job_name);
+    const header = params.pr_info ? `PR context: ${params.pr_info}\n\n` : "";
+    return text(header + JSON.stringify(verdict, null, 2), verdict);
+  },
+});
+
 export default function (pi: ExtensionAPI) {
   pi.registerTool(prowStatusTool);
   pi.registerTool(prowJobTool);
   pi.registerTool(prowBuildLogTool);
+  pi.registerTool(analyzeProwRunTool);
+  pi.registerTool(detectPermafailTool);
 
   pi.registerCommand("prow", {
-    description: "Prow CI: /prow [platforms...] [version] | /prow job <name> | /prow log <url>",
+    description:
+      "Prow CI: /prow [platforms...] [version] | /prow job <name> | /prow log <url> | /prow analyze <url> | /prow permafail <url> [url ...]",
     getArgumentCompletions: (prefix: string) => {
-      const items = ["job", "log"].map((v) => ({ value: v, label: v }));
+      const items = ["job", "log", "analyze", "permafail"].map((v) => ({ value: v, label: v }));
       const filtered = items.filter((i) => i.value.startsWith(prefix));
       return filtered.length > 0 ? filtered : null;
     },
@@ -207,7 +264,7 @@ export default function (pi: ExtensionAPI) {
       const cmd = parseProwCommand(args);
       if (cmd.kind === "usage") {
         ctx.ui.notify(
-          "/prow [platforms...] [version] | /prow job <name> | /prow log <url>",
+          "/prow [platforms...] [version] | /prow job <name> | /prow log <url> | /prow analyze <url> | /prow permafail <url> [url ...]",
           "info",
         );
         return;
