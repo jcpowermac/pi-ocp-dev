@@ -1,15 +1,11 @@
 {
   "name": "pi-ocp-dev",
   "version": "0.1.0",
-  "description": "pi coding agent tools for OpenShift developers: Prow CI monitoring, job inspection, and build log triage",
-  "keywords": [
-    "pi-package"
-  ],
+  "description": "pi coding agent tools for OpenShift developers: Prow CI monitoring, must-gather diagnostics, PR review responder, CI triage, Jira solver, and pre-commit automation",
+  "keywords": ["pi-package"],
   "license": "Apache-2.0",
   "pi": {
-    "extensions": [
-      "./extensions"
-    ]
+    "extensions": ["./extensions/index.ts"]
   },
   "scripts": {
     "test": "vitest run",
