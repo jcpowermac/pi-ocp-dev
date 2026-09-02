@@ -87,7 +87,8 @@ export async function parsePods(
           const isFailing =
             phase === "Failed" ||
             isCrashLoop ||
-            (!readyContainers && totalContainers > 0 && phase !== "Running" && phase !== "Succeeded");
+            (!readyContainers && totalContainers > 0 && phase !== "Succeeded") ||
+            (status !== "Running" && phase !== "Succeeded");
 
           if (isCrashLoop) summary.crashloop++;
           if (isPending) summary.pending++;

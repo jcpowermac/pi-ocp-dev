@@ -52,6 +52,41 @@ status:
     expect(summary.issues[0].status).toBe("CrashLoopBackOff");
   });
 
+  it("classifies pod with phase Running and ImagePullBackOff container as failing", async () => {
+    const podDir = path.join(tmpDir, "namespaces/openshift-monitoring/pods/alertmanager-main-0");
+    fs.mkdirSync(podDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(podDir, "alertmanager-main-0.yaml"),
+      `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: alertmanager-main-0
+  namespace: openshift-monitoring
+spec:
+  nodeName: worker-0
+status:
+  phase: Running
+  containerStatuses:
+    - name: alertmanager
+      ready: false
+      restartCount: 0
+      state:
+        waiting:
+          reason: ImagePullBackOff
+          message: "Back-off pulling image registry.example.com/alertmanager:v1"
+`,
+    );
+    const summary = await parsePods(tmpDir);
+    expect(summary.total).toBe(1);
+    expect(summary.failing).toBe(1);
+    expect(summary.healthy).toBe(0);
+    expect(summary.issues).toHaveLength(1);
+    expect(summary.issues[0].name).toBe("alertmanager-main-0");
+    expect(summary.issues[0].status).toBe("ImagePullBackOff");
+    expect(summary.issues[0].ready_containers).toBe("0/1");
+  });
+
   it("handles missing pods gracefully", async () => {
     const summary = await parsePods(tmpDir);
     expect(summary.total).toBe(0);
