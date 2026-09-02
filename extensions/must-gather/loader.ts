@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 const CACHE_BASE = path.join(os.homedir(), ".cache", "pi-ocp-dev", "must-gather");
 
@@ -48,7 +48,7 @@ export async function resolveMustGatherPath(source: string): Promise<string> {
     const dest = path.join(getCacheDir(), hash);
     if (!fs.existsSync(dest)) {
       fs.mkdirSync(dest, { recursive: true });
-      execSync(`tar -xf "${trimmed}" -C "${dest}"`);
+      execFileSync("tar", ["-xf", trimmed, "-C", dest]);
     }
     return resolveMustGatherPath(dest);
   }
