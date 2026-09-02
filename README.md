@@ -11,6 +11,7 @@
 | `prow_build_log` | Tail of a build's `build-log.txt`, converted automatically from a Prow deck URL (`https://prow.ci.openshift.org/view/gs/...`) to the public GCS object. |
 | `analyze_prow_run` | Deterministic first-pass analysis of one failed run: job types, failed e2e tests, failure signals with evidence lines, 1-3 candidate reference docs, and artifact paths — compact JSON, public GCS only. |
 | `detect_permafail` | Permafail verdict for 2-10 consecutive failures of the same job (newest first): fetches each run's failure signature and applies per-type match thresholds (100% / 80% / 70%), returning `permafail`, `failure_type`, `match_ratio`, and `confidence`. |
+| `analyze_must_gather` | Deterministic diagnostic analysis of OpenShift must-gather data from a local directory, `.tar`/`.tar.gz` archive, or remote Prow GCS build URL: operator health, failing pods, node pressures, etcd quorum, warning events, and storage. |
 
 `prow_status` requires at least one of `platforms` or `version` (or an explicit
 `all: true`) so the agent does not dump every periodic job by accident.
@@ -41,18 +42,25 @@ under `~/.cache/pi-ocp-dev/` (override with `PI_OCP_DEV_CACHE_DIR`); pass
 `prowjobs.json` instead of fetching. `prow_build_log`, `analyze_prow_run`, and
 `detect_permafail` fetch straight from public GCS.
 
-## Run analysis: skill and subagent
+### Must-Gather Slash Command
 
-The package also ships a thin `prow-job-analysis` skill and a `prow-analyst`
-subagent (`agents/prow-analyst.md`). The skill routes analysis through the two
-deterministic tools and then reads at most 2 of the vendored reference docs
-under `skills/prow-job-analysis/references/`; dispatch `prow-analyst` (prefer
-async) for deep dives so the parent session stays clean.
+The extension also registers `/must-gather`:
 
-How it keeps context small: the upstream failure-mode knowledge base is ~443 KB
-of markdown. Here it stays on disk and loads lazily — per run, the session sees
-≤4 KB of structured tool output plus at most 2 reference docs, instead of the
-whole runbook.
+```
+/must-gather ./must-gather.local.123              → full overview triage
+/must-gather ./must-gather.tar.gz operators       → cluster operators health
+/must-gather <prow-deck-url> pods openshift-etcd  → pods in specific namespace
+/must-gather <path-or-url> etcd                   → etcd member & quorum status
+/must-gather                                      → usage hint
+```
+
+## Run analysis: skills and subagents
+
+The package ships two thin routing skills and subagents:
+- **Prow CI analysis**: `prow-job-analysis` skill and `prow-analyst` subagent (`agents/prow-analyst.md`).
+- **Must-gather diagnostics**: `must-gather-analysis` skill and `must-gather-analyst` subagent (`agents/must-gather-analyst.md`).
+
+Both workflows route analysis through deterministic TypeScript tools and load reference docs lazily from disk (`skills/*/references/`), keeping context consumption minimal (≤2–4 KB) instead of flooding sessions with raw logs or manifests. Dispatch subagents asynchronously for deep dives so parent sessions stay clean.
 
 ## Install
 
@@ -95,10 +103,21 @@ extensions/prow/
 ├── classify.ts     # GCS artifact fetch, JUnit parsing, failure signatures
 ├── permafail.ts    # permafail threshold engine (per-type match thresholds)
 └── run-analysis.ts # analyze_prow_run / detect_permafail pipelines
+extensions/must-gather/
+├── index.ts        # registers analyze_must_gather tool and /must-gather command
+├── loader.ts       # resolves local dirs, tarballs, and remote Prow GCS artifacts
+├── types.ts        # shared TypeScript interfaces
+├── runner.ts       # orchestrates component parsers & health summary synthesis
+├── command.ts      # /must-gather slash command parser and prompt builder
+└── parsers/        # modular pure-TS parsers (clusterversion, operators, nodes, pods, etc.)
 skills/prow-job-analysis/
 ├── SKILL.md     # thin router (analyze_prow_run → ≤2 references → verdict)
 └── references/  # 15 vendored failure-mode docs, lazy-loaded
-agents/prow-analyst.md  # deep-dive subagent
+skills/must-gather-analysis/
+├── SKILL.md     # diagnostic triage router (analyze_must_gather → ≤2 references)
+└── references/  # focused failure-mode reference guides (operators, pods, nodes, etcd)
+agents/prow-analyst.md        # Prow CI deep-dive subagent
+agents/must-gather-analyst.md # Must-gather diagnostic subagent
 ```
 
 `test/` covers the tools and their pure logic (`failure`, `classify`,
