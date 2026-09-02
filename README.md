@@ -18,6 +18,12 @@
 | `analyze_prow_run` | Deterministic first-pass analysis of one failed run: job types, failed e2e tests, failure signals with evidence lines, candidate reference docs, and artifact paths — compact JSON, public GCS only. |
 | `detect_permafail` | Permafail verdict for 2-10 consecutive failures of the same job (newest first): fetches each run's failure signature and applies per-type match thresholds (100% / 80% / 70%), returning `permafail`, `failure_type`, `match_ratio`, and `confidence`. |
 
+### Must-Gather Diagnostics (`extensions/must-gather/`)
+
+| Tool | Purpose |
+|------|---------|
+| `analyze_must_gather` | Deterministic diagnostic analysis of OpenShift must-gather data from a local directory, `.tar`/`.tar.gz` archive, or remote Prow GCS build URL: operator health, failing pods, node pressures, etcd quorum, warning events, and storage. |
+
 ### PR Review & Gate Tools (`extensions/pr/`)
 
 | Tool | Purpose |
@@ -58,6 +64,17 @@ Relays a structured prompt to the agent to inspect or analyze Prow jobs:
 /prow                                 → usage hint (no LLM)
 ```
 
+### `/must-gather`
+Relays a structured prompt to the agent to inspect or analyze must-gather diagnostic data:
+
+```
+/must-gather ./must-gather.local.123              → full overview triage
+/must-gather ./must-gather.tar.gz operators       → cluster operators health
+/must-gather <prow-deck-url> pods openshift-etcd  → pods in specific namespace
+/must-gather <path-or-url> etcd                   → etcd member & quorum status
+/must-gather                                      → usage hint
+```
+
 ---
 
 ## Skill Catalog
@@ -65,6 +82,7 @@ Relays a structured prompt to the agent to inspect or analyze Prow jobs:
 | Skill | Purpose |
 |-------|---------|
 | `prow-job-analysis` | Deterministic triage of Prow job failures via `analyze_prow_run` and lazy-loaded reference docs under `skills/prow-job-analysis/references/`. |
+| `must-gather-analysis` | Deterministic triage of cluster diagnostic dumps via `analyze_must_gather` and lazy-loaded reference docs under `skills/must-gather-analysis/references/`. |
 | `has-review-work` | Read-only gate check: decides if a PR has unanswered authorized comments (`COMMENT_WORK`) or new required CI failures (`CI_WORK`). Supports `--ci` machine-readable output. |
 | `address-review-pr` | Fetches, prioritizes, and resolves PR review feedback, making code changes, verifying locally with `verify_repo`, replying via `pr_post_reply`, and pushing. |
 | `address-ci-failures` | Triages failing CI checks using `triage_pr_ci_failures`. Fixes only PR-caused failures on required jobs; reports infra, flake, and pre-existing issues via `post_ci_failure_report`. |
@@ -72,6 +90,13 @@ Relays a structured prompt to the agent to inspect or analyze Prow jobs:
 | `create-pr` | Creates a pull request from the current branch linked to a Jira issue key (`create_pr_helper`). |
 | `jira-solve` | End-to-end Jira issue solver: fetches issue details with `jira_get_issue`, plans solution in `.work/solve/`, implements changes, verifies, commits by component, pushes, and creates draft PR. |
 | `generate-test-plan` | Analyzes Jira acceptance criteria and PR diffs to generate a structured manual QE testing guide (`test-<key>.md`). |
+
+---
+
+## Subagents
+
+- **`prow-analyst`** (`agents/prow-analyst.md`): Deep root-cause analysis of failed Prow runs.
+- **`must-gather-analyst`** (`agents/must-gather-analyst.md`): Deep diagnostic analysis of cluster must-gather archives.
 
 ---
 
@@ -127,12 +152,14 @@ Directory structure:
 extensions/
 ├── index.ts        # Main entrypoint registering all tools, commands, and hooks
 ├── prow/           # Prow periodic status, build logs, and deterministic run analysis
+├── must-gather/    # Must-gather diagnostic parsers, path loader, and health runner
 ├── pr/             # OWNERS auth, comment parsing, reply posting, repo verify
 ├── ci/             # Optional job detection, PR diff context, CI failure triage
 ├── jira/           # Jira REST client, issue parser, PR creator helper
 └── precommit/      # Pre-commit config validation and session_start hook
 skills/
 ├── prow-job-analysis/
+├── must-gather-analysis/
 ├── has-review-work/
 ├── address-review-pr/
 ├── address-ci-failures/
@@ -141,8 +168,9 @@ skills/
 ├── jira-solve/
 └── generate-test-plan/
 agents/
-└── prow-analyst.md # Specialized subagent for Prow failure analysis
-test/               # Comprehensive Vitest test suites for all modules
+├── prow-analyst.md        # Specialized subagent for Prow failure analysis
+└── must-gather-analyst.md # Specialized subagent for must-gather analysis
+test/                      # Comprehensive Vitest test suites for all modules
 ```
 
 ---

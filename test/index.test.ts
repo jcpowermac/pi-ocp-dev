@@ -29,6 +29,9 @@ describe("Main extension entrypoint (extensions/index.ts)", () => {
     expect(registeredTools).toContain("analyze_prow_run");
     expect(registeredTools).toContain("detect_permafail");
 
+    // Verify Must-Gather tools
+    expect(registeredTools).toContain("analyze_must_gather");
+
     // Verify PR tools
     expect(registeredTools).toContain("pr_review_status");
     expect(registeredTools).toContain("pr_review_comments");
@@ -45,10 +48,11 @@ describe("Main extension entrypoint (extensions/index.ts)", () => {
 
     // Verify commands
     expect(registeredCommands).toContain("prow");
+    expect(registeredCommands).toContain("must-gather");
 
     // Verify lifecycle hook
     expect(registeredEvents).toContain("session_start");
 
-    expect(registeredTools.length).toBe(13);
+    expect(registeredTools.length).toBe(14);
   });
 });
