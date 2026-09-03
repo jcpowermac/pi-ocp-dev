@@ -51,7 +51,7 @@
 
 | Tool | Purpose |
 |------|---------|
-| `api_lint_types` | Deterministically lints Go API type files (or a package directory) against the Kubernetes/OpenShift API conventions: json tag naming, `+optional`/`+required` markers, omitempty consistency, bare/unsigned ints, floats, bool pointers, List items, TypeMeta/ObjectMeta pairing, `+union` discriminators, print columns, deprecated markers, and package version naming. No Go toolchain required; skips generated files. |
+| `api_lint_types` | Deterministically lints Go API type files (or a package directory) against the Kubernetes/OpenShift API conventions: json tag naming, `+optional`/`+required` markers, omitempty consistency, bare/unsigned ints, floats, forbidden booleans, List items, TypeMeta/ObjectMeta pairing, `+union` discriminators, print columns, deprecated markers, and package version naming. No Go toolchain required; skips generated files. |
 
 ---
 

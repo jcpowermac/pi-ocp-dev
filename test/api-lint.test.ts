@@ -69,7 +69,7 @@ type MyPlatformConfig struct {
 
 	// noOpinion allows the platform to choose.
 	// +optional
-	NoOpinion bool \`json:"noOpinion,omitempty"\`
+	NoOpinion string \`json:"noOpinion,omitempty"\`
 }
 `;
 
@@ -114,6 +114,10 @@ type BadThingSpec struct {
 	// Enabled is a non-pointer bool.
 	// +optional
 	Enabled bool \`json:"enabled,omitempty"\`
+
+	// EnabledPtr is a pointer bool.
+	// +optional
+	EnabledPtr *bool \`json:"enabledPtr,omitempty"\`
 
 	// Ratio is a float.
 	// +optional
@@ -178,7 +182,7 @@ describe("api_lint linter", () => {
       "json-name-mismatch",
       "bare-int",
       "unsigned-int",
-      "bool-not-pointer",
+      "boolean-forbidden",
       "float-avoid",
       "missing-optional-required",
       "required-omitempty",
@@ -220,7 +224,7 @@ describe("api_lint linter", () => {
     ).toBe(true);
   });
 
-  it("does not flag pointer bools or int32", () => {
+  it("flags pointer bools but not int32", () => {
     const src = `package v1
 
 type S struct {
@@ -233,8 +237,19 @@ type S struct {
 }
 `;
     const r = rules(lintGoTypes(src, "a.go"));
-    expect(r).not.toContain("bool-not-pointer");
+    expect(r).toContain("boolean-forbidden");
     expect(r).not.toContain("bare-int");
+  });
+
+  it("reports the concrete bool form in the message", () => {
+    const issues = lintGoTypes(
+      'package v1\n\ntype S struct {\n\t// +optional\n\tEnabled bool `json:"enabled,omitempty"`\n}\n',
+      "a.go",
+    );
+    const flag = issues.find((i) => i.rule === "boolean-forbidden");
+    expect(flag?.field).toBe("Enabled");
+    expect(flag?.message).toContain("bool");
+    expect(flag?.message).not.toContain("*bool");
   });
 
   it("handles one-line structs and const blocks after them", () => {
