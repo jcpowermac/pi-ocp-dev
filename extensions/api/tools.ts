@@ -46,7 +46,7 @@ export const apiLintTypesTool = defineTool({
   name: "api_lint_types",
   label: "Lint API Type Files",
   description:
-    "Deterministically lint Go API type files against Kubernetes/OpenShift API conventions (openshift/enhancements CONVENTIONS + k8s api-conventions): json tag naming, +optional/+required markers, omitempty consistency, bare/unsigned ints, float in APIs, forbidden booleans, List items, TypeMeta/ObjectMeta pairing, +union discriminators, printcolumns, package version naming, deprecated markers. Pass a types_*.go file or a package directory. No Go toolchain required.",
+    "Deterministically lint Go API type files against Kubernetes/OpenShift API conventions (openshift/enhancements CONVENTIONS + k8s api-conventions): json tag naming, +optional/+required markers, omitempty consistency, bare/unsigned ints, float in APIs, forbidden booleans, List items, TypeMeta/ObjectMeta pairing, +union discriminators, enum validation markers, printcolumns, package version naming, deprecated markers. Pass a types_*.go file or a package directory. No Go toolchain required.",
   parameters: Type.Object({
     path: Type.String({
       description: "A Go type file or a directory of Go files (e.g. a config/v1 package dir).",

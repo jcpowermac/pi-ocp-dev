@@ -126,9 +126,27 @@ export function parseGoTypes(source: string): { pkg: string; types: ParsedType[]
   return { pkg, types };
 }
 
+/** Named string types with at least one const value = enum types. */
+function enumTypes(source: string): Set<string> {
+  const lines = source.split("\n");
+  const stringTypes = new Set<string>();
+  for (const raw of lines) {
+    const m = raw.trim().match(/^type\s+([A-Za-z0-9_]+)\s+string\s*$/);
+    if (m) stringTypes.add(m[1]);
+  }
+  const enums = new Set<string>();
+  for (const raw of lines) {
+    const m = raw.trim().match(/^([A-Za-z0-9_]+)\s+([A-Za-z0-9_]+)\s*=/);
+    // ponytail: line-based const detection; `var X T =` is a rare false positive
+    if (m && stringTypes.has(m[2])) enums.add(m[2]);
+  }
+  return enums;
+}
+
 export function lintGoTypes(source: string, file: string): LintIssue[] {
   const issues: LintIssue[] = [];
   const { pkg, types } = parseGoTypes(source);
+  const enums = enumTypes(source);
   const add = (
     line: number,
     severity: "error" | "warn",
@@ -238,6 +256,11 @@ export function lintGoTypes(source: string, file: string): LintIssue[] {
       if (hasRequired && f.omitempty && !isPtr) {
         add(f.line, "warn", "required-omitempty",
           `field ${t.name}.${f.name} is required but uses omitempty; required fields normally omit omitempty unless pointer-typed`,
+          t.name, f.name);
+      }
+      if (enums.has(btype) && !f.type.startsWith("[]") && !m.some((x) => x.startsWith("kubebuilder:validation:Enum"))) {
+        add(f.line, "warn", "enum-missing-validation",
+          `field ${t.name}.${f.name} uses enum type ${btype} but has no +kubebuilder:validation:Enum marker; the CRD schema does not restrict its values (include the zero value if it is meaningful)`,
           t.name, f.name);
       }
       if (btype === "ObjectReference") {
