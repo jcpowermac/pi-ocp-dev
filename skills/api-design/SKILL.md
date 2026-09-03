@@ -18,8 +18,9 @@ enhancements conventions, with minimal context cost.
    warnings on pre-existing (legacy) fields may stay — never copy them into
    new fields.
 3. Only if a question remains that the linter does not answer (naming,
-   requiredness semantics, unions, defaults, deprecation, feature sets),
-   read `references/rules.md`.
+   requiredness semantics, unions, defaults, deprecation, feature sets,
+   versioning/promotion workflow, feature-gate mechanics), read
+   `references/rules.md`.
 
 ## Golden example
 
@@ -31,8 +32,13 @@ with `[]metav1.Condition`, platform-specific unions, printcolumn markers.
 
 - Kinds singular PascalCase; resources lowercase plural; JSON camelCase
   matching the Go name.
-- Every new field has `+optional` or `+required`. `bool` fields are
-  `*bool` + `omitempty`.
+- Every new field has `+optional` or `+required`. Booleans are forbidden in
+  OpenShift APIs — use a string policy enum instead.
+- Godoc per field: validation, "When omitted, ...", and field interactions.
 - No bare `int`, no unsigned ints, no floats in spec, no numeric enums.
-- Conditions are `[]metav1.Condition`, never singular.
+- Conditions are `[]metav1.Condition` (map-listType), never singular, and
+  no `phase` fields.
 - Resource-specific reference types; never generic `ObjectReference`.
+- New CRDs start as `v1alpha1` behind a FeatureGate; stable `v1` is
+  `compatibility-gen:level=1`, alpha is `level=4`; v1 fields are frozen —
+  deprecate, never delete.
