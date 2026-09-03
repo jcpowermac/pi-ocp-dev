@@ -36,6 +36,8 @@ with `[]metav1.Condition`, platform-specific unions, printcolumn markers.
   OpenShift APIs — use a string policy enum instead.
 - Godoc per field: validation, "When omitted, ...", and field interactions.
 - No bare `int`, no unsigned ints, no floats in spec, no numeric enums.
+- String-enum fields need `+kubebuilder:validation:Enum` (include "" if the
+  zero value is meaningful) — without it the CRD accepts any string.
 - Conditions are `[]metav1.Condition` (map-listType), never singular, and
   no `phase` fields.
 - Resource-specific reference types; never generic `ObjectReference`.

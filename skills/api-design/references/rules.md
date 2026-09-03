@@ -71,7 +71,10 @@ non-compliant APIs are not a justification for more non-compliant APIs.
 - **Enums**: string alias types with PascalCase constants, never numeric.
   Constant names follow `{TypeAlias}{Value}` (type `ProvisioningMode` →
   `ProvisioningModeThin`, not `Thin`). No MaxLength needed on enum fields —
-  the allowed values already bound the length.
+  the allowed values already bound the length. Every field of an enum type
+  needs a `+kubebuilder:validation:Enum` marker listing the allowed values —
+  otherwise the CRD schema accepts any string (include the zero value "" in
+  the list when the zero value is meaningful).
 - **Deprecated**: comment `DEPRECATED: <date/version> <guidance>` plus
   `+k8s:deprecated=<date>` marker. Do not delete or change the meaning of
   existing fields; add a new one and migrate. You cannot remove fields from

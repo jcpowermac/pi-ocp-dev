@@ -138,6 +138,10 @@ type BadThingSpec struct {
 	// Ref uses the generic object reference.
 	// +optional
 	Ref corev1.ObjectReference \`json:"ref,omitempty"\`
+
+	// Mode is an enum field missing the Enum marker.
+	// +optional
+	Mode Mode \`json:"mode,omitempty"\`
 }
 
 // BadList is a list with the wrong items tag.
@@ -161,6 +165,14 @@ type BadCondition struct {
 	// +optional
 	Condition metav1.Condition \`json:"condition,omitempty"\`
 }
+
+// Mode is a string alias type with const values (an enum).
+type Mode string
+
+const (
+	ModeFast Mode = "fast"
+	ModeSlow Mode = "slow"
+)
 `;
 
 function rules(issues: LintIssue[]): Set<string> {
@@ -190,6 +202,7 @@ describe("api_lint linter", () => {
       "generic-object-reference",
       "list-items-json",
       "union-missing-discriminator",
+      "enum-missing-validation",
       "meta-without-typemeta",
       "condition-singular",
     ]) {
@@ -298,6 +311,25 @@ type ClusterCondition struct {
 }
 `;
     expect(rules(lintGoTypes(src, "a.go"))).not.toContain("condition-singular");
+  });
+
+  it("does not flag enum types that carry the Enum marker", () => {
+    const src = `package v1
+
+type Mode string
+
+const (
+	ModeFast Mode = "fast"
+	ModeSlow Mode = "slow"
+)
+
+type S struct {
+	// +optional
+	// +kubebuilder:validation:Enum="";fast;slow
+	Mode Mode \`json:"mode,omitempty"\`
+}
+`;
+    expect(lintGoTypes(src, "a.go").filter((i) => i.rule === "enum-missing-validation")).toEqual([]);
   });
 
   it("does not require optional/required on embedded or metav1 meta fields", () => {
