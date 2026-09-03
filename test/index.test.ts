@@ -53,6 +53,6 @@ describe("Main extension entrypoint (extensions/index.ts)", () => {
     // Verify lifecycle hook
     expect(registeredEvents).toContain("session_start");
 
-    expect(registeredTools.length).toBe(14);
+    expect(registeredTools.length).toBe(15);
   });
 });
