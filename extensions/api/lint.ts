@@ -215,9 +215,9 @@ export function lintGoTypes(source: string, file: string): LintIssue[] {
         add(f.line, "error", "unsigned-int",
           `field ${t.name}.${f.name} uses unsigned integer ${btype}; unsigned integers are not allowed in APIs`, t.name, f.name);
       }
-      if (btype === "bool" && !isPtr) {
-        add(f.line, "warn", "bool-not-pointer",
-          `field ${t.name}.${f.name} is a non-pointer bool; false is a valid value so use *bool with omitempty`,
+      if (btype === "bool") {
+        add(f.line, "warn", "boolean-forbidden",
+          `field ${t.name}.${f.name} is ${isPtr ? "*bool" : "bool"}; booleans are forbidden in OpenShift APIs — use a string policy/enum type (status: a condition or string state)`,
           t.name, f.name);
       }
       if (btype === "float32" || btype === "float64") {
