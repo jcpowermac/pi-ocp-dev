@@ -47,6 +47,12 @@
 | `jira_get_issue` | Fetches Jira issue details via REST API, parsing summary, issue type, context, acceptance criteria, and reproduction steps into structured fields. |
 | `create_pr_helper` | Formats PR title (`<ISSUE_KEY>: <summary>`), populates body from `.github/PULL_REQUEST_TEMPLATE.md` and commit log, and executes `gh pr create`. |
 
+### API Design Tools (`extensions/api/`)
+
+| Tool | Purpose |
+|------|---------|
+| `api_lint_types` | Deterministically lints Go API type files (or a package directory) against the Kubernetes/OpenShift API conventions: json tag naming, `+optional`/`+required` markers, omitempty consistency, bare/unsigned ints, floats, bool pointers, List items, TypeMeta/ObjectMeta pairing, `+union` discriminators, print columns, deprecated markers, and package version naming. No Go toolchain required; skips generated files. |
+
 ---
 
 ## Slash Commands
@@ -90,6 +96,7 @@ Relays a structured prompt to the agent to inspect or analyze must-gather diagno
 | `create-pr` | Creates a pull request from the current branch linked to a Jira issue key (`create_pr_helper`). |
 | `jira-solve` | End-to-end Jira issue solver: fetches issue details with `jira_get_issue`, plans solution in `.work/solve/`, implements changes, verifies, commits by component, pushes, and creates draft PR. |
 | `generate-test-plan` | Analyzes Jira acceptance criteria and PR diffs to generate a structured manual QE testing guide (`test-<key>.md`). |
+| `api-design` | Designs/reviews Kubernetes/OpenShift API types with `api_lint_types` plus lazy-loaded `references/templates.go` (canonical type shapes) and `references/rules.md` (naming, requiredness, unions, defaults, deprecation, feature sets). |
 
 ---
 

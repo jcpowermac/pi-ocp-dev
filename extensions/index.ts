@@ -4,6 +4,7 @@ import registerMustGather from "./must-gather/index.js";
 import registerPrTools from "./pr/index.js";
 import registerCiTools from "./ci/index.js";
 import registerJiraTools from "./jira/index.js";
+import registerApiTools from "./api/index.js";
 import { registerPrecommitHook } from "./precommit/hook.js";
 
 export default function (pi: ExtensionAPI): void {
@@ -12,5 +13,6 @@ export default function (pi: ExtensionAPI): void {
   registerPrTools(pi);
   registerCiTools(pi);
   registerJiraTools(pi);
+  registerApiTools(pi);
   registerPrecommitHook(pi);
 }
