@@ -34,6 +34,26 @@ export interface NodeStatus {
   pressures: string[];
 }
 
+export interface MachineCondition {
+  type: string;
+  status: string;
+  lastTransitionTime?: string;
+  reason?: string;
+  message?: string;
+}
+
+export interface MachineStatus {
+  name: string;
+  phase?: string;
+  instance_state?: string;
+  node?: string;
+  conditions: MachineCondition[];
+  provider_conditions: MachineCondition[];
+  instance_id?: string;
+  last_updated?: string;
+  issues?: string[];
+}
+
 export interface PodIssue {
   namespace: string;
   name: string;
@@ -96,13 +116,14 @@ export interface NetworkStatus {
 export interface MustGatherSummary {
   operators: { total: number; healthy: number; degraded: number; progressing: number };
   nodes: { total: number; ready: number; not_ready: number; pressure: string[] };
+  machines: { total: number; running: number; with_issues: number };
   pods: { total: number; healthy: number; failing: number; crashloop: number; pending: number };
   etcd: { total_members: number; healthy: number; quorum: boolean };
   warning_events_count: number;
 }
 
 export interface CriticalIssue {
-  component: "operators" | "nodes" | "pods" | "events" | "etcd" | "network" | "storage";
+  component: "operators" | "nodes" | "machines" | "pods" | "events" | "etcd" | "network" | "storage";
   name: string;
   namespace?: string;
   reason?: string;
@@ -120,6 +141,7 @@ export interface MustGatherAnalysisResult {
   component_data?: {
     operators?: ClusterOperatorStatus[];
     nodes?: NodeStatus[];
+    machines?: MachineStatus[];
     pods?: PodIssue[];
     events?: ClusterEvent[];
     etcd?: EtcdHealthInfo;

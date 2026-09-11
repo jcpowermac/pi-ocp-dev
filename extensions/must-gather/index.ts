@@ -81,6 +81,7 @@ export default function (pi: ExtensionAPI) {
         "operators",
         "pods",
         "nodes",
+        "machines",
         "events",
         "etcd",
         "storage",

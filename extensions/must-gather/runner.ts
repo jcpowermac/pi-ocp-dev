@@ -2,6 +2,7 @@ import { resolveMustGatherPath } from "./loader.js";
 import { parseClusterVersion } from "./parsers/clusterversion.js";
 import { parseClusterOperators } from "./parsers/clusteroperators.js";
 import { parseNodes } from "./parsers/nodes.js";
+import { parseMachines, machineIssues } from "./parsers/machines.js";
 import { parsePods } from "./parsers/pods.js";
 import { parseEvents } from "./parsers/events.js";
 import { parseEtcd } from "./parsers/etcd.js";
@@ -22,16 +23,22 @@ export async function runMustGatherAnalysis(
   const component = opts.component || "all";
   const problemsOnly = opts.problemsOnly ?? (component === "all");
 
-  const [version, operators, nodes, podSummary, events, etcd, storage, network] = await Promise.all([
-    parseClusterVersion(mgRoot),
-    parseClusterOperators(mgRoot),
-    parseNodes(mgRoot),
+  const [version, operators, nodes, machines, podSummary, events, etcd, storage, network] =
+    await Promise.all([
+      parseClusterVersion(mgRoot),
+      parseClusterOperators(mgRoot),
+      parseNodes(mgRoot),
+      parseMachines(mgRoot),
     parsePods(mgRoot, { namespace: opts.namespace, problemsOnly }),
     parseEvents(mgRoot, { namespace: opts.namespace, count: opts.count, warningsOnly: true }),
-    parseEtcd(mgRoot),
-    parseStorage(mgRoot),
-    parseNetwork(mgRoot),
-  ]);
+      parseEtcd(mgRoot),
+      parseStorage(mgRoot),
+      parseNetwork(mgRoot),
+    ]);
+
+  const nodeNames = new Set(nodes.map((n) => n.name));
+  for (const m of machines) m.issues = machineIssues(m, nodeNames);
+  const machineProblems = machines.filter((m) => (m.issues?.length ?? 0) > 0);
 
   const degradedOps = operators.filter((o) => o.degraded || !o.available);
   const progOps = operators.filter((o) => o.progressing);
@@ -52,6 +59,11 @@ export async function runMustGatherAnalysis(
       ready: nodes.length - notReadyNodes.length,
       not_ready: notReadyNodes.length,
       pressure: pressureNodes,
+    },
+    machines: {
+      total: machines.length,
+      running: machines.filter((m) => m.phase === "Running").length,
+      with_issues: machineProblems.length,
     },
     pods: {
       total: podSummary.total,
@@ -106,6 +118,21 @@ export async function runMustGatherAnalysis(
     candidate_references.add("skills/must-gather-analysis/references/nodes.md");
   }
 
+  for (const m of machineProblems) {
+    critical_issues.push({
+      component: "machines",
+      name: m.name,
+      namespace: "openshift-machine-api",
+      reason: m.issues?.[0] || "MachineProblem",
+      message: `Machine ${m.name} (phase ${m.phase ?? "unknown"}): ${m.issues?.join(", ")}`,
+      since: m.issues?.some((i) => i.startsWith("InstanceExists"))
+        ? m.conditions.find((c) => c.type === "InstanceExists")?.lastTransitionTime
+        : undefined,
+      severity: m.phase === "Running" ? "warning" : "critical",
+    });
+    candidate_references.add("skills/must-gather-analysis/references/machines.md");
+  }
+
   if (etcd && !etcd.quorum) {
     critical_issues.push({
       component: "etcd",
@@ -129,6 +156,12 @@ export async function runMustGatherAnalysis(
         : {
             operators: component === "operators" ? operators : undefined,
             nodes: component === "nodes" ? nodes : undefined,
+            machines:
+              component === "machines"
+                ? problemsOnly
+                  ? machineProblems
+                  : machines
+                : undefined,
             pods: component === "pods" ? podSummary.issues : undefined,
             events: component === "events" ? events : undefined,
             etcd: component === "etcd" ? etcd || undefined : undefined,
