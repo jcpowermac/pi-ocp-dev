@@ -10,6 +10,7 @@ describe("must-gather types", () => {
     const summary: MustGatherSummary = {
       operators: { total: 1, healthy: 1, degraded: 0, progressing: 0 },
       nodes: { total: 3, ready: 3, not_ready: 0, pressure: [] },
+      machines: { total: 0, running: 0, with_issues: 0 },
       pods: { total: 10, healthy: 10, failing: 0, crashloop: 0, pending: 0 },
       etcd: { total_members: 3, healthy: 3, quorum: true },
       warning_events_count: 0,
