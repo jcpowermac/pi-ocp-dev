@@ -47,7 +47,7 @@ const prowStatusTool = defineTool({
     platforms: Type.Optional(
       Type.Array(Type.String(), {
         description:
-          "Case-insensitive substrings matched against job names (e.g. 'vsphere', 'aws', 'gcp', 'azure', 'nutanix'). A job matches if it contains ANY.",
+          "Case-insensitive substrings matched against job names (e.g. 'vsphere', 'aws', 'gcp', 'azure', 'nutanix'). A job matches if it contains ANY. Must be combined with 'version' to avoid huge reports.",
       }),
     ),
     version: Type.Optional(
@@ -86,6 +86,13 @@ const prowStatusTool = defineTool({
     if (!hasFilter && !params.all) {
       throw new Error(
         "Specify at least one of 'platforms' or 'version', or set all: true to report every periodic job.",
+      );
+    }
+    // platforms alone matches every version (~thousands of jobs) and floods the context window.
+    if (params.platforms?.length && !params.version && !params.all) {
+      throw new Error(
+        "'platforms' without 'version' matches too many jobs and would flood the context window. " +
+          "Also pass 'version' to narrow to one OCP release, or use the prow_job tool for a single job.",
       );
     }
     const raw = await fetchProwData({ file: params.file, refresh: params.refresh });

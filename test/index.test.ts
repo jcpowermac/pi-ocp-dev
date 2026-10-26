@@ -55,4 +55,21 @@ describe("Main extension entrypoint (extensions/index.ts)", () => {
 
     expect(registeredTools.length).toBe(15);
   });
+
+  it("prow_status rejects platforms without version", async () => {
+    const tools: any[] = [];
+    const mockPi: Partial<ExtensionAPI> = {
+      registerTool: vi.fn((tool: any) => tools.push(tool)),
+      registerCommand: vi.fn(),
+      on: vi.fn(),
+    };
+    registerExtension(mockPi as ExtensionAPI);
+
+    const prowStatus = tools.find((t) => t.name === "prow_status");
+    await expect(
+      prowStatus.execute("test", { platforms: ["aws"] }),
+    ).rejects.toThrow(/platforms.*without.*version/i);
+    // version-without-platforms stays allowed
+    await expect(prowStatus.execute("test", {})).rejects.not.toThrow(/platforms.*without.*version/i);
+  });
 });

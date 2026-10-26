@@ -16,7 +16,7 @@ const URL_TOKEN = /^https?:\/\//;
 
 export const PROW_USAGE = [
   "Usage:",
-  "  /prow [platforms...] [version]   prow_status report (e.g. /prow vsphere 4.18)",
+  "  /prow <platform> <version>      prow_status report (e.g. /prow vsphere 4.18)",
   "  /prow job <job-name>             prow_job detail for one job",
   "  /prow log <prow-deck-url>        prow_build_log tail + failure triage",
   "  /prow analyze <prow-deck-url>    analyze_prow_run first-pass run analysis",
@@ -76,6 +76,8 @@ export function parseProwCommand(args: string): ProwCommand {
     }
   }
   if (!platforms.length && !version) return { kind: "usage" };
+  // /prow vsphere alone would match every version and flood the context window.
+  if (platforms.length && !version) return { kind: "usage" };
   return { kind: "status", platforms: platforms.length ? platforms : undefined, version };
 }
 

@@ -11,15 +11,9 @@ describe("parseProwCommand", () => {
     expect(parseProwCommand("   ")).toEqual({ kind: "usage" });
   });
 
-  it("parses platforms only", () => {
-    expect(parseProwCommand("vsphere")).toEqual({
-      kind: "status",
-      platforms: ["vsphere"],
-    });
-    expect(parseProwCommand("aws gcp azure")).toEqual({
-      kind: "status",
-      platforms: ["aws", "gcp", "azure"],
-    });
+  it("returns usage for platforms without a version (too broad)", () => {
+    expect(parseProwCommand("vsphere")).toEqual({ kind: "usage" });
+    expect(parseProwCommand("aws gcp azure")).toEqual({ kind: "usage" });
   });
 
   it("parses a version token from anywhere", () => {
@@ -71,9 +65,10 @@ describe("parseProwCommand", () => {
   });
 
   it("trims surrounding whitespace", () => {
-    expect(parseProwCommand("  vsphere  ")).toEqual({
+    expect(parseProwCommand("  vsphere 4.18  ")).toEqual({
       kind: "status",
       platforms: ["vsphere"],
+      version: "4.18",
     });
   });
 
